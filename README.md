@@ -3,61 +3,66 @@
 </div>
 
 <p align="center">
-  <code>Infrastructure</code> > <code>Windows Server</code> > <code>Network & Security Hardening</code>
+  <code>Infrastructure</code> > <code>Windows Server</code> > <code>Active Directory Domain Services</code>
 </p>
 
-# 🏛️ Windows Server 2016 Home Lab - Phase 1: Environment & Connectivity
+# 🏛️ Windows Server 2016 Home Lab - Phase 2: AD DS Promotion
 
-This repository documents the comprehensive setup of a Windows Server 2016 environment. It details the initial deployment, advanced network troubleshooting, and security configuration required to prepare the server for an Active Directory (AD DS) role.
+This phase documents the transformation of a standalone Windows Server into the Root Domain Controller of a new Active Directory Forest. It details the forest architecture, functional levels, and critical directory services implementation.
 
-## 🚀 Project Overview
-* **Hypervisor:** VMware Workstation
-* **OS:** Windows Server 2016 Datacenter Evaluation
-* **Network Mode:** Bridged (Direct physical network access)
-* **Static IP:** `192.168.1.200`
-* **Status:** Fully optimized and network-ready.
-
----
-
-## 🛠️ Step-by-Step Implementation
-
-### 1. Provisioning & Optimization
-- **Bypassing Easy Install:** Resolved VMware automation issues by manually mounting the ISO, ensuring access to the Evaluation Edition setup.
-- **VMware Tools:** Integrated essential drivers for display resolution, network performance, and guest-host interaction.
-- **Server Identity:** Renamed the server and assigned a static IP address to ensure reliability for future Domain Controller services.
-
-### 2. Connectivity & Security Adjustments
-- **IE Enhanced Security Configuration (IE ESC):** Disabled IE ESC for the Administrator account to facilitate necessary browser-based downloads and laboratory research.
-- **DNS Loopback Management:** Configured `127.0.0.1` as the primary DNS in preparation for the DNS Role, with a public recursive resolver as secondary to maintain internet access.
+## 🚀 Domain Architecture
+* **Forest/Domain Name:** `northman.com`
+* **NetBIOS Name:** `NORTHMAN`
+* **Functional Level:** Windows Server 2016 (Forest & Domain)
+* **Roles Deployed:** AD DS, DNS Server, Global Catalog (GC)
 
 ---
 
-## ⚠️ Troubleshooting Log (Vulnerability & Connectivity Analysis)
+## 🛠️ AD DS Promotion Details
 
-### **Case #1: Bidirectional ICMP (Ping) Failures**
-* **Problem:** VM-to-Host and Host-to-VM ping requests resulted in `Request timed out`.
-* **Root Cause:** Windows Defender Firewall blocks incoming ICMPv4 (Echo Request) packets by default on both Client and Server OS.
-* **Solution:** 1. On the **Host Machine**: Enabled the inbound rule **"File and Printer Sharing (Echo Request - ICMPv4-In)"** for Private/Public profiles.
-    2. On the **Server Machine**: Applied the same rule within the Server's Firewall settings to allow the Host to reach the Guest.
+### 1. Forest Configuration
+- **New Forest Creation:** Established `northman.com` as the root of a new forest.
+- **Functional Levels:** Set both Forest and Domain functional levels to **Windows Server 2016** to utilize modern security features like Privileged Access Management and rolling expiration for group memberships.
+- **Global Catalog (GC):** Enabled GC to provide searchable cluster of all objects within the forest, essential for multi-domain queries and UPN logons.
 
-### **Case #2: The DNS Resolution Paradox**
-* **Problem:** Could ping public IPs (e.g., `8.8.8.8`) but domain resolution (e.g., `google.com`) failed.
-* **Root Cause:** The Preferred DNS was set to `127.0.0.1` (Localhost) because the server is destined to be a Domain Controller. However, since the **DNS Server Role** was not yet installed, the server had no local service to resolve queries.
-* **Solution:** Added a reliable Public DNS (`8.8.8.8`) as the **Alternate DNS Server**. This allowed the OS to failover to a public resolver while maintaining the primary configuration for the upcoming AD DS deployment.
+### 2. Database & Replication Paths
+The standard NTDS directory structure was maintained for optimal compatibility:
+- **Database Folder:** `C:\Windows\NTDS`
+- **Log Files:** `C:\Windows\NTDS`
+- **SYSVOL Folder:** `C:\Windows\SYSVOL` (Used for Group Policy and logon script replication).
+
+---
+
+## ⚠️ Phase 2 Troubleshooting Log
+
+### **Case #3: DNS Verification Latency during Promotion**
+* **Problem:** During the "Deployment Configuration" stage, the wizard became unresponsive for several minutes after entering the Root Domain Name.
+* **Root Cause:** The server was attempting to query external DNS resolvers (e.g., `8.8.8.8`) to check for the existence of the `northman.com` namespace. This caused a significant timeout period before failing over to local validation.
+* **Analysis:** High latency in AD promotion is often tied to recursive DNS lookups for non-existent local domains.
+* **Solution:** Patience was exercised until the timeout occurred, allowing the wizard to proceed with local forest creation. *Post-install optimization:* Ensured DNS Preferred address points to `127.0.0.1`.
+
+---
+
+## 💻 Identity & Access Management
+Following the promotion, the server transitioned from local SAM (Security Accounts Manager) authentication to Domain-based authentication.
+- **Logon Format:** `NORTHMAN\Administrator`
+- **Transition:** Local accounts were migrated to the Active Directory database, and the server now manages centralized identity for the entire namespace.
 
 ---
 
 ## 📈 Current Progress
 - [x] VMware Environment Optimization
 - [x] Static IP & Hostname Configuration
-- [x] Bidirectional Network Connectivity (Firewall Hardening)
-- [x] DNS Resolver Failover Configuration
-- [x] IE ESC Disabled for Administrative Ease
-- [ ] **Next Step:** Installation of Active Directory Domain Services (AD DS)
-- [ ] **Next Step:** DNS Zone Configuration
+- [x] Bidirectional Network Connectivity
+- [x] **Active Directory Domain Services (AD DS) Installation**
+- [x] **New Forest Creation (northman.com)**
+- [x] **DNS & Global Catalog Integration**
+- [ ] **Next Step:** Active Directory Users and Computers (ADUC) Management
+- [ ] **Next Step:** Group Policy Objects (GPO) Implementation
+- [ ] **Next Step:** DHCP Server Role Configuration
 
 ---
 
 <div align="center">
-<p><i>"A Sysadmin doesn't just build systems; they solve the puzzles that keep those systems talking to each other."</i></p>
+<p><i>"The Forest has been planted. Now it's time to manage the trees."</i></p>
 </div>
