@@ -3,63 +3,61 @@
 </div>
 
 <p align="center">
-  <code>Infrastructure</code> > <code>Windows Server</code> > <code>Active Directory Preparation</code>
+  <code>Infrastructure</code> > <code>Windows Server</code> > <code>Network & Security Hardening</code>
 </p>
 
-# 🏛️ Windows Server 2016 Home Lab - Phase 1: Environment & Network
+# 🏛️ Windows Server 2016 Home Lab - Phase 1: Environment & Connectivity
 
-This repository documents the first phase of building an enterprise-grade IT infrastructure from scratch. The project covers everything from setting up the virtualization layer to operating system optimization and critical network configurations.
+This repository documents the comprehensive setup of a Windows Server 2016 environment. It details the initial deployment, advanced network troubleshooting, and security configuration required to prepare the server for an Active Directory (AD DS) role.
 
 ## 🚀 Project Overview
 * **Hypervisor:** VMware Workstation
-* **OS:** Windows Server 2016 Datacenter Evaluation (Desktop Experience)
-* **Goal:** To deploy a secure, scalable, and enterprise-standard Active Directory Domain environment.
+* **OS:** Windows Server 2016 Datacenter Evaluation
+* **Network Mode:** Bridged (Direct physical network access)
+* **Static IP:** `192.168.1.200`
+* **Status:** Fully optimized and network-ready.
 
 ---
 
-## 🛠️ Setup & Configuration Steps
+## 🛠️ Step-by-Step Implementation
 
-### 1. Hypervisor Layer & ISO Boot
-The virtual machine architecture was created, overcoming hypervisor automation hurdles with manual interventions.
+### 1. Provisioning & Optimization
+- **Bypassing Easy Install:** Resolved VMware automation issues by manually mounting the ISO, ensuring access to the Evaluation Edition setup.
+- **VMware Tools:** Integrated essential drivers for display resolution, network performance, and guest-host interaction.
+- **Server Identity:** Renamed the server and assigned a static IP address to ensure reliability for future Domain Controller services.
 
-* **Virtual Hardware:** Resource allocation and hardware provisioning were completed on VMware.
-* **Network Mode:** **Bridged Networking** was selected to allow the server to communicate directly with physical devices on the local network (same subnet as the host machine: `192.168.1.101`).
-
-### 2. OS Optimization
-* **Edition Selection:** Installed the *Datacenter Evaluation* edition for unrestricted virtualization features and full GUI support.
-* **Driver Integration:** Successfully installed **VMware Tools** for optimal graphical performance, network stability, and seamless host-guest interaction.
-* **Identity Management:** Configured the initial Local Administrator account adhering to security standards.
-
-### 3. Network & Identity Configuration (Critical)
-Before adding the Active Directory role, the server's network identity was strictly defined:
-
-* **Hostname Configuration:** Changed the default random hostname to a standardized, professional server name via Server Manager.
-* **Static IP Assignment:** * **IP Address:** `192.168.1.200` (Reserved on the bridged network)
-    * **Subnet Mask:** `255.255.255.0`
-    * **Default Gateway:** `192.168.1.1`
-* **DNS Configuration:** Since this machine will act as the primary Domain Controller and DNS Server, its own IP address (`192.168.1.200`) was assigned as the Preferred DNS Server.
+### 2. Connectivity & Security Adjustments
+- **IE Enhanced Security Configuration (IE ESC):** Disabled IE ESC for the Administrator account to facilitate necessary browser-based downloads and laboratory research.
+- **DNS Loopback Management:** Configured `127.0.0.1` as the primary DNS in preparation for the DNS Role, with a public recursive resolver as secondary to maintain internet access.
 
 ---
 
-## ⚠️ Troubleshooting Log
+## ⚠️ Troubleshooting Log (Vulnerability & Connectivity Analysis)
 
-### **Case #1: Bypassing VMware Easy Install Restriction**
-* **Issue:** VMware's "Easy Install" feature automatically detected the Windows Server ISO and demanded a "Product Key" upfront, blocking the installation process for the Evaluation edition.
-* **Analysis:** The hypervisor's automated setup prevents access to the standard Windows setup screen where the "I don't have a product key" option resides.
-* **Solution:** Created the virtual machine initially using the *"I will install the operating system later"* option (creating a blank drive). Afterward, manually mounted the ISO file to the virtual CD/DVD drive in the hardware settings. This forced a manual boot, allowing a successful bypass and standard installation.
+### **Case #1: Bidirectional ICMP (Ping) Failures**
+* **Problem:** VM-to-Host and Host-to-VM ping requests resulted in `Request timed out`.
+* **Root Cause:** Windows Defender Firewall blocks incoming ICMPv4 (Echo Request) packets by default on both Client and Server OS.
+* **Solution:** 1. On the **Host Machine**: Enabled the inbound rule **"File and Printer Sharing (Echo Request - ICMPv4-In)"** for Private/Public profiles.
+    2. On the **Server Machine**: Applied the same rule within the Server's Firewall settings to allow the Host to reach the Guest.
+
+### **Case #2: The DNS Resolution Paradox**
+* **Problem:** Could ping public IPs (e.g., `8.8.8.8`) but domain resolution (e.g., `google.com`) failed.
+* **Root Cause:** The Preferred DNS was set to `127.0.0.1` (Localhost) because the server is destined to be a Domain Controller. However, since the **DNS Server Role** was not yet installed, the server had no local service to resolve queries.
+* **Solution:** Added a reliable Public DNS (`8.8.8.8`) as the **Alternate DNS Server**. This allowed the OS to failover to a public resolver while maintaining the primary configuration for the upcoming AD DS deployment.
 
 ---
 
-## 📈 Current Status & Next Steps
-- [x] VMware Virtual Machine Configuration
-- [x] Windows Server 2016 Installation
-- [x] VMware Tools & Driver Optimization
-- [x] Hostname and Static IP Configuration
-- [ ] **Next Step:** Installation of Active Directory Domain Services (AD DS) Role
-- [ ] **Next Step:** DNS and DHCP Role Configurations
+## 📈 Current Progress
+- [x] VMware Environment Optimization
+- [x] Static IP & Hostname Configuration
+- [x] Bidirectional Network Connectivity (Firewall Hardening)
+- [x] DNS Resolver Failover Configuration
+- [x] IE ESC Disabled for Administrative Ease
+- [ ] **Next Step:** Installation of Active Directory Domain Services (AD DS)
+- [ ] **Next Step:** DNS Zone Configuration
 
 ---
 
 <div align="center">
-<p><i>"Network configuration is the foundation of a system; the stronger the foundation, the higher the uptime."</i></p>
+<p><i>"A Sysadmin doesn't just build systems; they solve the puzzles that keep those systems talking to each other."</i></p>
 </div>
