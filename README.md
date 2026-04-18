@@ -3,66 +3,67 @@
 </div>
 
 <p align="center">
-  <code>Infrastructure</code> > <code>Windows Server</code> > <code>Active Directory Domain Services</code>
+  <code>Infrastructure</code> > <code>Windows Server</code> > <code>Identity Management & Client Integration</code>
 </p>
 
-# 🏛️ Windows Server 2016 Home Lab - Phase 2: AD DS Promotion
+# 🏛️ Windows Server 2016 Home Lab - Phase 3: ADUC & Client Provisioning
 
-This phase documents the transformation of a standalone Windows Server into the Root Domain Controller of a new Active Directory Forest. It details the forest architecture, functional levels, and critical directory services implementation.
+This phase focuses on the logical structuring of the Active Directory environment and the provisioning of the first Client OS. It covers Organizational Unit (OU) design, Security Group management, and overcoming modern OS deployment restrictions.
 
-## 🚀 Domain Architecture
-* **Forest/Domain Name:** `northman.com`
-* **NetBIOS Name:** `NORTHMAN`
-* **Functional Level:** Windows Server 2016 (Forest & Domain)
-* **Roles Deployed:** AD DS, DNS Server, Global Catalog (GC)
-
----
-
-## 🛠️ AD DS Promotion Details
-
-### 1. Forest Configuration
-- **New Forest Creation:** Established `northman.com` as the root of a new forest.
-- **Functional Levels:** Set both Forest and Domain functional levels to **Windows Server 2016** to utilize modern security features like Privileged Access Management and rolling expiration for group memberships.
-- **Global Catalog (GC):** Enabled GC to provide searchable cluster of all objects within the forest, essential for multi-domain queries and UPN logons.
-
-### 2. Database & Replication Paths
-The standard NTDS directory structure was maintained for optimal compatibility:
-- **Database Folder:** `C:\Windows\NTDS`
-- **Log Files:** `C:\Windows\NTDS`
-- **SYSVOL Folder:** `C:\Windows\SYSVOL` (Used for Group Policy and logon script replication).
+## 🚀 Phase Objectives
+* **Client OS:** Windows 10 Pro (VMware Virtual Machine)
+* **AD Management Tool:** Active Directory Users and Computers (ADUC)
+* **Architecture:** Multi-branch logical structure (Sivas & Gaziantep)
 
 ---
 
-## ⚠️ Phase 2 Troubleshooting Log
+## 🛠️ Step-by-Step Implementation
 
-### **Case #3: DNS Verification Latency during Promotion**
-* **Problem:** During the "Deployment Configuration" stage, the wizard became unresponsive for several minutes after entering the Root Domain Name.
-* **Root Cause:** The server was attempting to query external DNS resolvers (e.g., `8.8.8.8`) to check for the existence of the `northman.com` namespace. This caused a significant timeout period before failing over to local validation.
-* **Analysis:** High latency in AD promotion is often tied to recursive DNS lookups for non-existent local domains.
-* **Solution:** Patience was exercised until the timeout occurred, allowing the wizard to proceed with local forest creation. *Post-install optimization:* Ensured DNS Preferred address points to `127.0.0.1`.
+### 1. Logical Architecture Design (ADUC)
+Designed a scalable, location-based Organizational Unit (OU) hierarchy to facilitate granular Group Policy Object (GPO) targeting in the future.
+* **Root Domain:** `northman.com`
+* **Branch 1 (Sivas):** Created parent OU `Sivas` with nested OUs: `Muhasebe` (Accounting), `IT`, and `Satis` (Sales).
+* **Branch 2 (Gaziantep):** Created parent OU `Gaziantep` with nested OUs: `PC` and `Kullanicilar` (Users).
+
+### 2. Identity & Access Management
+* **User Provisioning:** Created multiple standard user accounts and structurally organized them by moving them into their respective departmental OUs.
+* **Security Groups:** Established a Security Group named `Satis` within the `Sivas\Satis` OU. Added appropriate user accounts to this group to manage collective permissions.
+* **Advanced Concepts:** Validated Group Nesting capabilities (adding groups as members of other groups) and mastered the removal of protected OUs by modifying the "Protect object from accidental deletion" attribute.
+
+### 3. Client OS Provisioning
+* **Deployment:** Installed Windows 10 as a secondary virtual machine to act as the primary domain client.
+* **Optimization:** Installed VMware Tools on the client machine to ensure optimal network and display driver performance.
 
 ---
 
-## 💻 Identity & Access Management
-Following the promotion, the server transitioned from local SAM (Security Accounts Manager) authentication to Domain-based authentication.
-- **Logon Format:** `NORTHMAN\Administrator`
-- **Transition:** Local accounts were migrated to the Active Directory database, and the server now manages centralized identity for the entire namespace.
+## ⚠️ Troubleshooting Log
+
+### **Case #4: Windows 10 OOBE Local Account Enforcement**
+* **Problem:** During the Windows 10 installation (Out-of-Box Experience), the setup aggressively demanded a Microsoft Account, hiding the "Offline Account" option.
+* **Attempts:** 1. Opened CMD (`Shift+F10`) and attempted the `OOBE\BYPASSNRO` registry script (Failed - not applicable to this specific build).
+  2. Attempted to kill the "Network Connection Flow" process via `taskmgr` (Failed - OS enforcement persisted).
+* **Solution:** Performed a hardware-level intervention by virtually disconnecting the Network Adapter in VMware settings (simulating a physical ethernet cable unplug). This forced the OS setup to fallback to the Local Administrator account creation screen.
+
+### **Case #5: Keyboard Layout Mismatch & AD Password Reset**
+* **Problem:** Post-AD promotion, login attempts as the Domain Administrator failed continuously due to a hidden keyboard layout shift (TR/EN mismatch) during password creation.
+* **Solution:** Utilized the On-Screen Keyboard via Accessibility Tools to bypass the physical layout mismatch and gain entry. Subsequently used the `dsa.msc` (ADUC) console to securely reset the Domain Administrator password without requiring the previous complex string.
 
 ---
 
 ## 📈 Current Progress
 - [x] VMware Environment Optimization
 - [x] Static IP & Hostname Configuration
-- [x] Bidirectional Network Connectivity
-- [x] **Active Directory Domain Services (AD DS) Installation**
-- [x] **New Forest Creation (northman.com)**
-- [x] **DNS & Global Catalog Integration**
-- [ ] **Next Step:** Active Directory Users and Computers (ADUC) Management
+- [x] Active Directory Domain Services (AD DS) Installation
+- [x] DNS & Global Catalog Integration
+- [x] **Client VM Provisioning (Win10 OOBE Bypass)**
+- [x] **ADUC Hierarchy Design (OUs: Sivas, Gaziantep)**
+- [x] **User and Security Group Management**
+- [ ] **Next Step:** Joining the Windows 10 Client to the `northman.com` Domain
 - [ ] **Next Step:** Group Policy Objects (GPO) Implementation
 - [ ] **Next Step:** DHCP Server Role Configuration
 
 ---
 
 <div align="center">
-<p><i>"The Forest has been planted. Now it's time to manage the trees."</i></p>
+<p><i>"A well-structured Active Directory is like a well-organized library; everything has its place, and access is explicitly controlled."</i></p>
 </div>
