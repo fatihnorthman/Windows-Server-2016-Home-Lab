@@ -1,69 +1,54 @@
-<div align="center">
-<img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=2b2d42,8d99ae,ef233c&height=220&section=header&text=Windows%20Server%202016%20Lab&fontSize=50&fontColor=ffffff&animation=fadeIn&fontAlignY=35" width="100%"/>
-</div>
+## 🔐 Phase 4: Endpoint Integration & Identity Security (IAM)
 
-<p align="center">
-  <code>Infrastructure</code> > <code>Windows Server</code> > <code>Identity Management & Client Integration</code>
-</p>
+> *"Trust is good, but explicit control is better. Securing the perimeter starts with securing the identity."*
 
-# 🏛️ Windows Server 2016 Home Lab - Phase 3: ADUC & Client Provisioning
-
-This phase focuses on the logical structuring of the Active Directory environment and the provisioning of the first Client OS. It covers Organizational Unit (OU) design, Security Group management, and overcoming modern OS deployment restrictions.
-
-## 🚀 Phase Objectives
-* **Client OS:** Windows 10 Pro (VMware Virtual Machine)
-* **AD Management Tool:** Active Directory Users and Computers (ADUC)
-* **Architecture:** Multi-branch logical structure (Sivas & Gaziantep)
+**Executive Summary:** This phase marks the critical transition from basic infrastructure deployment to active **Identity and Access Management (IAM)**. It documents the successful integration of physical endpoints into the `northman.com` domain and the enforcement of strict *"Zero Trust"* and *"Principle of Least Privilege" (PoLP)* security policies.
 
 ---
 
-## 🛠️ Step-by-Step Implementation
+### 🚀 I. Core Operations: The First Handshake
+**Objective:** Securely integrate physical Windows 10 endpoints into the centralized Active Directory architecture.
 
-### 1. Logical Architecture Design (ADUC)
-Designed a scalable, location-based Organizational Unit (OU) hierarchy to facilitate granular Group Policy Object (GPO) targeting in the future.
-* **Root Domain:** `northman.com`
-* **Branch 1 (Sivas):** Created parent OU `Sivas` with nested OUs: `Muhasebe` (Accounting), `IT`, and `Satis` (Sales).
-* **Branch 2 (Gaziantep):** Created parent OU `Gaziantep` with nested OUs: `PC` and `Kullanicilar` (Users).
-
-### 2. Identity & Access Management
-* **User Provisioning:** Created multiple standard user accounts and structurally organized them by moving them into their respective departmental OUs.
-* **Security Groups:** Established a Security Group named `Satis` within the `Sivas\Satis` OU. Added appropriate user accounts to this group to manage collective permissions.
-* **Advanced Concepts:** Validated Group Nesting capabilities (adding groups as members of other groups) and mastered the removal of protected OUs by modifying the "Protect object from accidental deletion" attribute.
-
-### 3. Client OS Provisioning
-* **Deployment:** Installed Windows 10 as a secondary virtual machine to act as the primary domain client.
-* **Optimization:** Installed VMware Tools on the client machine to ensure optimal network and display driver performance.
+| Action Phase | Protocol / Command | Outcome / Technical Validation |
+| :--- | :--- | :--- |
+| **1. Network Config** | Static IP & DNS set to `192.168.1.200` | Client successfully queried `_ldap._tcp.dc._msdcs` SRV records to locate the DC. |
+| **2. Domain Join** | `System Properties` ➔ `Domain` | Transitioned from local SAM authentication to domain-wide **Kerberos v5**. |
+| **3. Security Audit** | `lusrmgr.msc` vs. Domain Credentials | Verified that standard domain users lack unauthorized local administrator privileges. |
 
 ---
 
-## ⚠️ Troubleshooting Log
+### 🛡️ II. IAM Field Logs: System Hardening Policies
+The following security policies were deployed via Active Directory Users and Computers (ADUC) to mitigate internal threats and automate identity lifecycles.
 
-### **Case #4: Windows 10 OOBE Local Account Enforcement**
-* **Problem:** During the Windows 10 installation (Out-of-Box Experience), the setup aggressively demanded a Microsoft Account, hiding the "Offline Account" option.
-* **Attempts:** 1. Opened CMD (`Shift+F10`) and attempted the `OOBE\BYPASSNRO` registry script (Failed - not applicable to this specific build).
-  2. Attempted to kill the "Network Connection Flow" process via `taskmgr` (Failed - OS enforcement persisted).
-* **Solution:** Performed a hardware-level intervention by virtually disconnecting the Network Adapter in VMware settings (simulating a physical ethernet cable unplug). This forced the OS setup to fallback to the Local Administrator account creation screen.
+#### 🛑 Policy #01: The Restricted Terminal (Anti-Lateral Movement)
+* **Threat Vector:** Compromised credentials being used to traverse the network (e.g., a standard user logging into a critical HR or Server machine).
+* **Implementation:** `User Properties` ➔ `Account` ➔ `Log On To...`
+* **Technical Mechanism:** Modified the AD `logonWorkstation` attribute.
+* **Status:** `[ ACTIVE ]` — Users are explicitly whitelisted to authenticate *only* on their assigned NetBIOS computer names.
 
-### **Case #5: Keyboard Layout Mismatch & AD Password Reset**
-* **Problem:** Post-AD promotion, login attempts as the Domain Administrator failed continuously due to a hidden keyboard layout shift (TR/EN mismatch) during password creation.
-* **Solution:** Utilized the On-Screen Keyboard via Accessibility Tools to bypass the physical layout mismatch and gain entry. Subsequently used the `dsa.msc` (ADUC) console to securely reset the Domain Administrator password without requiring the previous complex string.
+#### 🌙 Policy #02: The Night Shift Lockout (Time-Based Access)
+* **Threat Vector:** Off-hours data exfiltration or unauthorized physical access to office terminals.
+* **Implementation:** `User Properties` ➔ `Account` ➔ `Logon Hours`
+* **Technical Mechanism:** Configured the `logonHours` matrix.
+* **Status:** `[ ACTIVE ]` — The system cryptographically denies Kerberos Ticket Granting Tickets (TGTs) outside of authorized business hours (e.g., 18:00 to 08:00).
+
+#### ⏳ Policy #03: Automated Lifecycle Management (The Kill-Switch)
+* **Threat Vector:** "Ghost Accounts" left behind by departed contractors or interns becoming targets for threat actors.
+* **Implementation:** `User Properties` ➔ `Account` ➔ `Account Expires`
+* **Status:** `[ ACTIVE ]` — Ensures ISO 27001 compliance. System automatically revokes all access rights at midnight on the specified contract end date, eliminating human error.
+
+#### 🚨 Policy #04: Emergency Offboarding & Incident Response
+* **Threat Vector:** Active internal threat, compromised account, or immediate employee termination.
+* **Implementation:** Right Click ➔ `Disable Account`
+* **Technical Mechanism:** Toggles the `ACCOUNTDISABLE` flag within the `userAccountControl` attribute.
+* **Visual Indicator:** ⬇️ *A black downward arrow overlay appears on the user object.*
+* **Status:** `[ TESTED & VERIFIED ]` — Account is instantly stripped of all authentication privileges network-wide.
 
 ---
 
-## 📈 Current Progress
-- [x] VMware Environment Optimization
-- [x] Static IP & Hostname Configuration
-- [x] Active Directory Domain Services (AD DS) Installation
-- [x] DNS & Global Catalog Integration
-- [x] **Client VM Provisioning (Win10 OOBE Bypass)**
-- [x] **ADUC Hierarchy Design (OUs: Sivas, Gaziantep)**
-- [x] **User and Security Group Management**
-- [ ] **Next Step:** Joining the Windows 10 Client to the `northman.com` Domain
-- [ ] **Next Step:** Group Policy Objects (GPO) Implementation
-- [ ] **Next Step:** DHCP Server Role Configuration
+### 🛠️ III. Routine L1/L2 Maintenance Logs
+> **Note:** Successfully simulated and performed routine Helpdesk incident response procedures.
+- `[✓]` Identified and unlocked accounts triggered by the brute-force `Account Lockout` security policy.
+- `[✓]` Executed secure administrative password resets for simulated compromised credentials.
 
 ---
-
-<div align="center">
-<p><i>"A well-structured Active Directory is like a well-organized library; everything has its place, and access is explicitly controlled."</i></p>
-</div>
