@@ -1,54 +1,42 @@
-## 🔐 Phase 4: Endpoint Integration & Identity Security (IAM)
+---
 
-> *"Trust is good, but explicit control is better. Securing the perimeter starts with securing the identity."*
+## 📂 Phase 5: File Server Infrastructure & Granular Access Control
+*“Data is the lifeblood of an organization; its accessibility must be seamless, but its security must be absolute.”*
 
-**Executive Summary:** This phase marks the critical transition from basic infrastructure deployment to active **Identity and Access Management (IAM)**. It documents the successful integration of physical endpoints into the `northman.com` domain and the enforcement of strict *"Zero Trust"* and *"Principle of Least Privilege" (PoLP)* security policies.
+This phase documents the provisioning of a dedicated storage environment and the implementation of a hierarchical permission model. By deploying a second server specifically for file services, we have moved from a single-point infrastructure to a scalable, distributed network architecture.
+
+### 🏗️ I. Server Provisioning & Domain Integration
+**Objective:** Deploy a specialized node for centralized data storage and integrate it into the `northman.com` security boundary.
+
+* **Node Identity:** Provisioned a new Virtual Machine running **Windows Server 2016**, designated as `File-Storage`.
+* **Networking & Connectivity:** * Assigned a static IP within the server VLAN and configured the DNS to point to the primary Domain Controller (`192.168.1.200`).
+    * **Firewall Hardening:** Modified Inbound Rules to enable **ICMPv4 (Echo Request)**, allowing diagnostic `ping` tests to verify network path integrity between the DC, File Server, and Client endpoints.
+* **Domain Handshake:** Successfully joined `File-Storage` to the `northman.com` domain, allowing the server to recognize and authenticate domain-wide security principals (Users and Groups).
 
 ---
 
-### 🚀 I. Core Operations: The First Handshake
-**Objective:** Securely integrate physical Windows 10 endpoints into the centralized Active Directory architecture.
+### 🛡️ II. Storage Architecture & Permission Modeling
+**Objective:** Implement a "Least Privilege" access model by segregating Share-level and NTFS-level permissions.
 
-| Action Phase | Protocol / Command | Outcome / Technical Validation |
+| Operation Phase | Technical Implementation | Outcome |
 | :--- | :--- | :--- |
-| **1. Network Config** | Static IP & DNS set to `192.168.1.200` | Client successfully queried `_ldap._tcp.dc._msdcs` SRV records to locate the DC. |
-| **2. Domain Join** | `System Properties` ➔ `Domain` | Transitioned from local SAM authentication to domain-wide **Kerberos v5**. |
-| **3. Security Audit** | `lusrmgr.msc` vs. Domain Credentials | Verified that standard domain users lack unauthorized local administrator privileges. |
+| **Share Creation** | SMB (Server Message Block) Protocol | Created a centralized repository and enabled "Sharing" to make it discoverable over the network. |
+| **Share Permissions** | `Properties` ➔ `Sharing` ➔ `Permissions` | Defined the entry-point access. Set as a broad "Change" gate for authenticated users to be refined by NTFS. |
+| **NTFS Hardening** | `Properties` ➔ `Security` (Advanced) | Applied granular Access Control Entries (ACEs). Configured Read, Write, List, and Execute rights for specific departments. |
+
+#### 📝 Field Observation: The "Effective Permissions" Logic
+During validation, the interaction between Share and NTFS permissions was tested. 
+- **Scenario:** A non-admin user accessed the share from a Windows 10 terminal.
+- **Result:** While the share was visible to all authenticated users, the **NTFS Security Layer** acted as the ultimate gatekeeper, preventing unauthorized users from modifying or deleting files within restricted departmental folders.
 
 ---
 
-### 🛡️ II. IAM Field Logs: System Hardening Policies
-The following security policies were deployed via Active Directory Users and Computers (ADUC) to mitigate internal threats and automate identity lifecycles.
+### 🛠️ III. Deployment Checklist & Validation
+> **Note:** Verified the environment using standard L1/L2 testing procedures.
 
-#### 🛑 Policy #01: The Restricted Terminal (Anti-Lateral Movement)
-* **Threat Vector:** Compromised credentials being used to traverse the network (e.g., a standard user logging into a critical HR or Server machine).
-* **Implementation:** `User Properties` ➔ `Account` ➔ `Log On To...`
-* **Technical Mechanism:** Modified the AD `logonWorkstation` attribute.
-* **Status:** `[ ACTIVE ]` — Users are explicitly whitelisted to authenticate *only* on their assigned NetBIOS computer names.
-
-#### 🌙 Policy #02: The Night Shift Lockout (Time-Based Access)
-* **Threat Vector:** Off-hours data exfiltration or unauthorized physical access to office terminals.
-* **Implementation:** `User Properties` ➔ `Account` ➔ `Logon Hours`
-* **Technical Mechanism:** Configured the `logonHours` matrix.
-* **Status:** `[ ACTIVE ]` — The system cryptographically denies Kerberos Ticket Granting Tickets (TGTs) outside of authorized business hours (e.g., 18:00 to 08:00).
-
-#### ⏳ Policy #03: Automated Lifecycle Management (The Kill-Switch)
-* **Threat Vector:** "Ghost Accounts" left behind by departed contractors or interns becoming targets for threat actors.
-* **Implementation:** `User Properties` ➔ `Account` ➔ `Account Expires`
-* **Status:** `[ ACTIVE ]` — Ensures ISO 27001 compliance. System automatically revokes all access rights at midnight on the specified contract end date, eliminating human error.
-
-#### 🚨 Policy #04: Emergency Offboarding & Incident Response
-* **Threat Vector:** Active internal threat, compromised account, or immediate employee termination.
-* **Implementation:** Right Click ➔ `Disable Account`
-* **Technical Mechanism:** Toggles the `ACCOUNTDISABLE` flag within the `userAccountControl` attribute.
-* **Visual Indicator:** ⬇️ *A black downward arrow overlay appears on the user object.*
-* **Status:** `[ TESTED & VERIFIED ]` — Account is instantly stripped of all authentication privileges network-wide.
-
----
-
-### 🛠️ III. Routine L1/L2 Maintenance Logs
-> **Note:** Successfully simulated and performed routine Helpdesk incident response procedures.
-- `[✓]` Identified and unlocked accounts triggered by the brute-force `Account Lockout` security policy.
-- `[✓]` Executed secure administrative password resets for simulated compromised credentials.
+- `[✓]` **DNS Resolution:** Verified that `File-Storage` resolves correctly across all subnets.
+- `[✓]` **Access Validation:** Successfully mapped network drives on Windows 10 clients using standard user accounts.
+- `[✓]` **Permission Audit:** Confirmed that "List Folder Contents" works for unauthorized users, but "Write/Delete" actions are strictly denied as per the NTFS ACL (Access Control List).
+- `[✓]` **ICMP Verification:** Network latency and packet loss between nodes remain within optimal parameters ( <1ms).
 
 ---
