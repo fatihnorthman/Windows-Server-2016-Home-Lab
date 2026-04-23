@@ -1,52 +1,45 @@
-## 📂 Phase 6: Advanced Storage Governance & Centralized Management
+## 🗄️ Phase 7: Storage Governance & Data Loss Prevention (FSRM)
 
-> *"Permission architecture is like a chain; the weakest link—the most restrictive permission—defines the boundary of the entire system."*
+> *"Storage space is inexpensive, but unmanaged data sprawl is a critical liability. Effective governance ensures both availability and security."*
 
-**Executive Summary:** This phase documents the advanced management of storage services, the nuances of NTFS permission inheritance, and the centralized administration of servers via Remote Management. Furthermore, system-level remote access methodologies were tested and secured using default "Administrative Shares."
-
----
-
-### 🛡️ I. Permission Logic: The "Most Restrictive" Rule
-**Objective:** Resolve conflicts between Share and NTFS permissions and validate "Effective Permissions" for end-users.
-
-* **Conflict Resolution:** Extensive testing confirmed a core Windows architecture rule: Even if Share and NTFS permissions differ, the system always enforces the **most restrictive** permission. 
-* **Field Protocol (Best Practice):** Adopted the enterprise standard of setting Share permissions broadly to `Everyone - Full Control`, while enforcing granular, strict access controls exclusively at the **NTFS layer** (Security tab).
+**Executive Summary:** This phase transitions the infrastructure from basic file sharing to advanced storage governance. By deploying the **File Server Resource Manager (FSRM)** role, we established automated capacity limits (Quotas), implemented Data Loss Prevention via File Screening, and integrated an SMTP relay for proactive administrative alerting.
 
 ---
 
-### 🛠️ II. Remote Discovery & Administrative Shares
-**Objective:** Configure direct, hidden access methodologies to the file systems of networked endpoints for administrative and troubleshooting purposes.
+### 📏 I. Capacity Management & Custom Quotas
+**Objective:** Prevent storage exhaustion on the File Server by enforcing user and department-level storage limits.
 
-| Share Type | Path / Access Method | Technical Description |
+* **Drive Mapping Validation:** Successfully deployed network drives to end-user workstations to streamline access to the central repository.
+* **Custom Template Creation:** Evaluated default FSRM templates (e.g., 2GB limit) and found them insufficient for the simulated corporate scenario. Navigated to `Tools ➔ FSRM ➔ Quota Management` and engineered a custom **8GB Quota Template**.
+* **Quota Architecture:**
+    * **Hard Quota:** Configured absolute limits that physically block users from saving data once the 8GB threshold is reached, ensuring server stability.
+    * **Soft Quota:** Utilized for monitoring purposes, allowing users to exceed the limit while generating compliance alerts.
+
+---
+
+### 📧 II. Proactive Alerting & Event Automation
+**Objective:** Establish a notification pipeline to alert the IT department *before* a critical storage failure occurs.
+
+* **SMTP Relay Configuration:** Configured the FSRM global options (`Right-Click FSRM ➔ Configure Options`) to integrate a simulated Mail Server via IP/Hostname, defining the central Admin email address for incoming alerts.
+* **Threshold Triggers:** Modified the custom Quota Template to include progressive **Notification Thresholds**. 
+    * *Example Protocol:* At **85% capacity**, an automated warning email is generated and dispatched to the IT team.
+* **Alert Customization:** Customized the dynamic email templates to include precise variables `[Source IoC, User, Capacity]` and configured secondary triggers to write directly to the Windows Event Log.
+
+---
+
+### 🛑 III. File Screening & Threat Mitigation
+**Objective:** Protect corporate storage assets from unauthorized, non-business, or potentially malicious file types.
+
+| Feature | Implementation | Technical Outcome |
 | :--- | :--- | :--- |
-| **Hidden Share** | `ShareName$` | Appending a `$` suffix hides the shared folder from standard Network Discovery tools. |
-| **Admin Shares** | `\\PC-NAME\C$` | Granted direct remote access to root disk partitions (e.g., C:, D:) utilizing Domain Admin privileges. |
-| **System Share** | `\\PC-NAME\ADMIN$` | Tested the administrative path granting remote GUI/CLI access directly to the Windows OS directory. |
-
-* **Observation Log:** These administrative shares are automatically provisioned by the Windows OS. Testing revealed that even if manually disabled by an administrator, the system automatically reinstates them upon the next reboot.
+| **File Screening** | `FSRM ➔ File Screening Management` | Blocked specific extensions (e.g., `.exe`, `.mp3`, `.mp4`) from being written to corporate shares. |
+| **Active Auditing** | FSRM Event Triggers | If a user attempts to upload a restricted file type, the system instantly drops the payload and flags the action. |
+| **Log Aggregation** | `Event Viewer ➔ Windows Logs` | Traced and analyzed FSRM security events to identify which users attempted to bypass the File Screen policies. |
 
 ---
 
-### 🌳 III. Inheritance & Explicit Access Control (ACLs)
-**Objective:** Manage the hierarchical flow of permissions within the file system and strategically break this flow for isolated security zones.
-
-1.  **Permission Inheritance:** Observed that Access Control Entries (ACEs) assigned to a parent directory automatically propagate down to all child objects.
-2.  **Disabling Inheritance:** Successfully broke this propagation (`Disable Inheritance`) on specific subfolders to create isolated permission sets independent of the parent directory.
-3.  **Explicit Deny:** Simulated a scenario where a user had "Read" access at the parent level. By applying an **"Explicit Deny"** rule on a critical subfolder, their access was completely revoked. 
-    * *Core Rule Verified:* `Explicit Deny always overrides Explicit Allow.`
-
----
-
-### 🖥️ IV. Centralized Role Management (Single Pane of Glass)
-**Objective:** Centrally orchestrate all server roles and storage services across the network directly from the Domain Controller (DC).
-
-* **Remote Node Integration:** Added the `File-Storage` server as a managed node within the DC's Server Manager dashboard.
-* **Remote Deployment:** Successfully installed the "File and Storage Services" role onto the remote `File-Storage` server directly from the DC console.
-* **Outcome:** Validated a "Single Pane of Glass" management infrastructure. All network shares, NTFS permissions, and disk management operations can now be orchestrated from one central hub without needing to RDP into individual servers.
-
----
-
-### ✅ V. Security Posture & Maintenance Checklist
-- `[✓]` **Privilege Escalation:** Deprecated the built-in `Administrator` account; all operations are now executed via a Named Admin account mapped to the `Domain Admins` group.
-- `[✓]` **Drive Mapping:** Successfully created and mapped Network Drives for shared folders, validating client-side access.
-- `[✓]` **Access Scoping:** Finalized department-based NTFS authorizations (Read, Write, Execute, List Folder Contents).
+### ✅ IV. Deployment & Validation Checklist
+- `[✓]` **Network Drives:** Users can access the File Server seamlessly via mapped drives on their Windows 10 endpoints.
+- `[✓]` **Custom Quotas:** 8GB Hard Quota successfully applied to target directories.
+- `[✓]` **Email Integration:** SMTP routing configured for automated capacity warnings.
+- `[✓]` **Screening Active:** Unauthorized file types are actively blocked and logged to the Event Viewer.
