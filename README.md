@@ -1,62 +1,46 @@
-## 📦 Phase 9: Advanced GPO Engineering & Zero-Touch Software Deployment
+## 📦 Phase 10: Endpoint State Orchestration & Identity Hardening
 
-> *"Enterprise administration requires moving beyond basic restrictions. It involves engineering scalable templates, managing granular security exceptions, and orchestrating silent, network-wide software deployments."*
+> *"True enterprise administration is not managing users; it is orchestrating state. By centralizing data and locking down endpoints, we shift from reactive troubleshooting to proactive infrastructure governance."*
 
-**Executive Summary:** This phase transitions the Active Directory lab from basic endpoint management to advanced infrastructure orchestration. The focus was on optimizing Group Policy Object (GPO) lifecycles, establishing baseline configuration templates (Starter GPOs), implementing granular security filtering for administrative exceptions, and engineering a fully automated `.msi` application deployment pipeline via hidden network shares.
-
----
-
-### 🛡️ I. Granular Security Filtering & Policy Exemptions
-**Objective:** Enforce domain-wide restrictions while strategically exempting specific VIP users or administrative accounts without creating fragmented or complex OU structures.
-
-* **Architectural Concept:** In Active Directory, an explicit `Deny` permission always overrides an `Allow` permission. 
-* **Implementation Steps:**
-  1. Navigated to the target GPO within Group Policy Management Console (GPMC).
-  2. Accessed the **Delegation** tab and clicked **Advanced**.
-  3. Added the specific User/Group intended for exemption.
-  4. Configured the Access Control List (ACL): Checked **`Apply Group Policy: Deny`** and ensured `Read: Allow` was set.
-* **Validation:** Verified that the baseline restrictions (e.g., hidden C: drive) applied to standard users in the OU, but the targeted administrative account bypassed the restrictions entirely upon logon.
+**Executive Summary:** This phase focuses on standardizing the endpoint user experience, centralizing critical user data for backup purposes, and hardening identity security. Key implementations include configuring Folder Redirection for data centralization, enforcing corporate identity via locked wallpapers, and establishing strict domain-level password policies to mitigate brute-force and dictionary attacks.
 
 ---
 
-### 📊 II. GPO Lifecycle Management & Compliance Auditing
-**Objective:** Maintain operational control over active policies and generate documentation for compliance and security audits.
+### 📂 I. Centralized Data Management (Folder Redirection)
+**Objective:** Prevent data loss caused by hardware failure on endpoints by silently redirecting user profile folders (e.g., Desktop) to a centralized, redundant file server.
 
-* **Safe Deactivation (Status Toggling):** * Instead of deleting or unlinking policies for troubleshooting, the GPO status was modified via the Details tab to **`All settings disabled`**. This safely suspends the policy temporarily across the domain without losing the configuration state.
-* **HTML Report Generation:**
-  * Executed the **`Save Report`** function on targeted GPOs to export human-readable HTML documentation. 
-  * *Sysadmin Value:* This proves invaluable for documenting exact registry modifications and policy paths during system audits or infrastructure handovers.
-
----
-
-### 📋 III. Standardization via "Starter GPOs"
-**Objective:** Eliminate redundant configuration effort by creating reusable, pre-configured administrative templates for future policy creation.
-
-* **Configuration Baseline:** Created a new Starter GPO targeted at standardizing a "Locked-Down UI Environment".
-* **Specific Policies Configured within the Starter GPO:**
-  1. `User Config ➔ Admin Templates ➔ Start Menu and Taskbar ➔ Remove the volume control icon` **[Enabled]**
-  2. `User Config ➔ Admin Templates ➔ Start Menu and Taskbar ➔ Remove the networking icon` **[Enabled]**
-  3. `User Config ➔ Admin Templates ➔ Start Menu and Taskbar ➔ Lock all taskbar settings` **[Enabled]**
-* **Deployment Execution:** Instantiated a brand new production GPO, selecting this custom Starter GPO as the `Source`. The new GPO automatically inherited all the predefined baseline configurations, significantly accelerating deployment time.
+* **Infrastructure Preparation (Storage & Permissions):**
+  * Created a dedicated network share (`\\ServerName\RedirectedFolders$`).
+  * Configured rigorous NTFS and Share permissions to ensure users can only write to their respective directories, maintaining strict data isolation.
+* **GPO Implementation:**
+  * **Path:** `User Configuration ➔ Policies ➔ Windows Settings ➔ Folder Redirection ➔ Desktop`
+  * **Setting:** `Basic - Redirect everyone's folder to the same location`
+  * **Target Folder Location:** Set to the UNC path of the centralized share.
+* **Architectural & Security Rationale:**
+  * 🔴 **Exclusive Rights Disabled:** Explicitly unchecked *"Grant the user exclusive rights to Desktop"*. 
+    * *SysAdmin Rationale:* By default, Windows locks out administrators from redirected folders. Disabling this ensures Domain Administrators and automated Backup Service Accounts retain Read/Write access to user data for disaster recovery and compliance auditing.
+  * 🟢 **Legacy Compatibility:** Enabled *"Also apply redirection policy to Windows 2000, 2000 Server, XP, and 2003 operating systems"* to maintain backward compatibility in mixed-OS environments and prevent edge-case failures.
 
 ---
 
-### 🚀 IV. Zero-Touch Software Deployment Pipeline
-**Objective:** Automate the distribution and silent installation of corporate applications across endpoint devices utilizing native Windows Server capabilities.
+### 🖼️ II. Corporate Identity Standardization (UI Lockdown)
+**Objective:** Enforce corporate branding on all domain-joined machines and prevent unauthorized endpoint modifications.
 
-#### 1. Storage Architecture & Network Permissions
-To prevent unauthorized access and ensure seamless background installation, a dedicated deployment repository was constructed:
-* **The Hidden Share:** Created a folder on the File Server and shared it with a trailing dollar sign (`\\ServerName\SoftwareDeploy$`). The `$` ensures the share is invisible to standard network discovery tools.
-* **Access Control (NTFS & Share):** Configured strict permissions, explicitly granting the `Domain Computers` or targeted User Groups **`Read & Execute`** access to allow the system to fetch the `.msi` payload.
+* **Implementation Strategy:**
+  * Hosted the official corporate wallpaper on a highly available, read-only network share.
+  * Created a specific GPO to push the background image (`User Config ➔ Admin Templates ➔ Desktop ➔ Desktop ➔ Desktop Wallpaper`).
+  * Configured supplementary policies to lock the Control Panel personalization settings, explicitly preventing users from bypassing or changing the enforced wallpaper.
+* **Outcome:** Achieved a unified corporate aesthetic across all departments, mitigating inappropriate desktop backgrounds and standardizing the visual environment.
 
-#### 2. GPO Deployment Configuration
-Navigated to `User Configuration ➔ Policies ➔ Software Settings ➔ Software Installation`.
-* **Package Selection:** Directed the system to the Universal Naming Convention (UNC) path of the payload (`\\ServerName\SoftwareDeploy$\app.msi`). *Crucial step: Never use local paths like `C:\` for network deployments.*
-* **Deployment Methodology Comparison:**
-  * **Assigned (Chosen Method):** Pushes the application directly to the endpoint. Configured the installation UI to `Basic` to ensure silent, zero-touch installation during the user logon process.
-  * **Published (Alternative Tested):** Makes the application available in the client's Control Panel ("Programs and Features" -> "Install a program from the network"), allowing for user-driven self-service installation.
+---
 
-#### 3. Client-Side Execution & Validation
-* Executed **`gpupdate /force`** on the target Windows endpoint.
-* Logged off and logged back in.
-* **Result:** The system intercepted the logon sequence, fetched the `.msi` from the hidden share, and installed the software silently before presenting the desktop to the user.
+### 🔐 III. Identity & Access Hardening (Password Policies)
+**Objective:** Fortify the Active Directory authentication mechanism against credential-based attacks (e.g., brute-force, password spraying, rainbow tables).
+
+* **GPO Implementation (Default Domain Policy):**
+  * **Path:** `Computer Configuration ➔ Policies ➔ Windows Settings ➔ Security Settings ➔ Account Policies ➔ Password Policy`
+* **Enforced Parameters:**
+  * **Password must meet complexity requirements: [Enabled]** * *Enforcement:* Forces a mix of uppercase, lowercase, numbers, and special characters, eliminating simple dictionary passwords.
+  * **Minimum password length:** * *Enforcement:* Established a strict minimum character limit (e.g., 8-12 characters) to exponentially increase the time required for offline cracking attempts.
+  * **Enforce password history:** * *Enforcement:* Prevented users from continuously cycling through previously used passwords (e.g., remembering the last 5 passwords).
+* **Outcome:** Significantly elevated the domain's security posture by ensuring all authenticated accounts adhere to enterprise-grade credential standards.
