@@ -1,46 +1,54 @@
-## 📦 Phase 10: Endpoint State Orchestration & Identity Hardening
+## 📦 Phase 11: Enterprise Print Server Architecture & Automated Deployment
 
-> *"True enterprise administration is not managing users; it is orchestrating state. By centralizing data and locking down endpoints, we shift from reactive troubleshooting to proactive infrastructure governance."*
+> *"Physical outputs are extensions of digital data. A secure infrastructure must manage printers not as standalone peripherals, but as centralized, role-based network resources deployed seamlessly to the end-user."*
 
-**Executive Summary:** This phase focuses on standardizing the endpoint user experience, centralizing critical user data for backup purposes, and hardening identity security. Key implementations include configuring Folder Redirection for data centralization, enforcing corporate identity via locked wallpapers, and establishing strict domain-level password policies to mitigate brute-force and dictionary attacks.
-
----
-
-### 📂 I. Centralized Data Management (Folder Redirection)
-**Objective:** Prevent data loss caused by hardware failure on endpoints by silently redirecting user profile folders (e.g., Desktop) to a centralized, redundant file server.
-
-* **Infrastructure Preparation (Storage & Permissions):**
-  * Created a dedicated network share (`\\ServerName\RedirectedFolders$`).
-  * Configured rigorous NTFS and Share permissions to ensure users can only write to their respective directories, maintaining strict data isolation.
-* **GPO Implementation:**
-  * **Path:** `User Configuration ➔ Policies ➔ Windows Settings ➔ Folder Redirection ➔ Desktop`
-  * **Setting:** `Basic - Redirect everyone's folder to the same location`
-  * **Target Folder Location:** Set to the UNC path of the centralized share.
-* **Architectural & Security Rationale:**
-  * 🔴 **Exclusive Rights Disabled:** Explicitly unchecked *"Grant the user exclusive rights to Desktop"*. 
-    * *SysAdmin Rationale:* By default, Windows locks out administrators from redirected folders. Disabling this ensures Domain Administrators and automated Backup Service Accounts retain Read/Write access to user data for disaster recovery and compliance auditing.
-  * 🟢 **Legacy Compatibility:** Enabled *"Also apply redirection policy to Windows 2000, 2000 Server, XP, and 2003 operating systems"* to maintain backward compatibility in mixed-OS environments and prevent edge-case failures.
+**Executive Summary:** This phase focuses on centralizing print management, automating peripheral deployment, and securing physical document outputs. Key implementations include establishing a dedicated Print Server role, achieving zero-touch printer installation via GPO, enforcing Role-Based Access Control (RBAC) to mitigate unauthorized printing, and optimizing consumable costs by centralizing printer preferences.
 
 ---
 
-### 🖼️ II. Corporate Identity Standardization (UI Lockdown)
-**Objective:** Enforce corporate branding on all domain-joined machines and prevent unauthorized endpoint modifications.
+### 🖨️ I. Centralized Print Infrastructure & Zero-Touch Deployment
+**Objective:** Eliminate manual, per-machine printer installations by centralizing management and automating deployment based on Organizational Units (OUs).
 
-* **Implementation Strategy:**
-  * Hosted the official corporate wallpaper on a highly available, read-only network share.
-  * Created a specific GPO to push the background image (`User Config ➔ Admin Templates ➔ Desktop ➔ Desktop ➔ Desktop Wallpaper`).
-  * Configured supplementary policies to lock the Control Panel personalization settings, explicitly preventing users from bypassing or changing the enforced wallpaper.
-* **Outcome:** Achieved a unified corporate aesthetic across all departments, mitigating inappropriate desktop backgrounds and standardizing the visual environment.
+* **Infrastructure Preparation:**
+  * Installed the `Print and Document Services` role on the server.
+  * *Architectural Note:* While co-located in this lab, in a true enterprise production environment, Print Services are strictly isolated on a dedicated member server. This mitigates critical spooler-based vulnerabilities (e.g., PrintNightmare) from compromising the Domain Controller.
+* **GPO Deployment Strategy:**
+  * Configured automated deployment via `Print Management ➔ Deploy with Group Policy`.
+  * **Targeting:** Deployed the printer `Per User` to the specific target OU.
+  * *SysAdmin Rationale:* Deploying "Per User" ensures the printer follows the employee regardless of which workstation they log into. This achieves a "Zero-Touch" IT support model, drastically reducing Helpdesk tickets related to missing peripheral drivers.
 
 ---
 
-### 🔐 III. Identity & Access Hardening (Password Policies)
-**Objective:** Fortify the Active Directory authentication mechanism against credential-based attacks (e.g., brute-force, password spraying, rainbow tables).
+### 🛡️ II. Print Security & Access Control (RBAC)
+**Objective:** Secure physical hardware from unauthorized access and ensure sensitive documents (e.g., HR, Finance) are only printed by authorized personnel.
 
-* **GPO Implementation (Default Domain Policy):**
-  * **Path:** `Computer Configuration ➔ Policies ➔ Windows Settings ➔ Security Settings ➔ Account Policies ➔ Password Policy`
-* **Enforced Parameters:**
-  * **Password must meet complexity requirements: [Enabled]** * *Enforcement:* Forces a mix of uppercase, lowercase, numbers, and special characters, eliminating simple dictionary passwords.
-  * **Minimum password length:** * *Enforcement:* Established a strict minimum character limit (e.g., 8-12 characters) to exponentially increase the time required for offline cracking attempts.
-  * **Enforce password history:** * *Enforcement:* Prevented users from continuously cycling through previously used passwords (e.g., remembering the last 5 passwords).
-* **Outcome:** Significantly elevated the domain's security posture by ensuring all authenticated accounts adhere to enterprise-grade credential standards.
+* **Vulnerability Identification:**
+  * Discovered that the default Windows configuration grants `Print` permissions to the `Everyone` group, allowing cross-departmental access to restricted printers.
+* **Security Hardening (Implementation):**
+  * Accessed the Printer's `Properties ➔ Security` tab within Print Management.
+  * Explicitly removed the `Everyone` group.
+  * Added specific Active Directory Security Groups (e.g., `SG_Sales_PrintAccess`) and granted explicit `Print` permissions.
+* **Validation:** Unauthorized users were immediately met with an authentication prompt (Access Denied) when attempting to map or print to the secured device, confirming the Principle of Least Privilege is active.
+
+---
+
+### 📉 III. Cost Optimization & Resource Management
+**Objective:** Centrally manage consumable costs (color toner) without relying on user compliance.
+
+* **Implementation:**
+  * Modified the default deployment configuration via `Properties ➔ General ➔ Preferences ➔ Paper/Quality`.
+  * Forced the default output to `Black and White`.
+* *SysAdmin Rationale:* End-users often print internal documents in color by mistake. Enforcing grayscale at the server level ensures domain-wide cost savings. If specific users require color, a secondary "Logical Printer" mapped to the same physical IP can be created and secured via a VIP Security Group.
+
+---
+
+### 🌐 IV. Active Directory Integration & TCP/IP Networking
+**Objective:** Enhance network scalability and enable user-driven peripheral discovery via Active Directory.
+
+1. **Directory Publishing:**
+   * Enabled `List in the directory` via Print Management.
+   * *Outcome:* Printers are now registered as Active Directory objects. Users can self-service by using the `Find: Printers` query in Windows Explorer, locating printers based on features or physical location.
+2. **TCP/IP Network Printer Architecture:**
+   * Transitioned from legacy local ports (LPD/USB) to scalable `Standard TCP/IP Ports`.
+   * Configured the printer IP address directly within Print Management.
+   * *SysAdmin Rationale:* Network-attached printers provide superior telemetry, SNMP monitoring capabilities, and eliminate the single-point-of-failure associated with USB-tethered "shared" printers.
