@@ -1,54 +1,63 @@
-## 📦 Phase 11: Enterprise Print Server Architecture & Automated Deployment
+## 📦 Phase 12: Hybrid Infrastructure, DHCP Orchestration & RDP Service Hardening
 
-> *"Physical outputs are extensions of digital data. A secure infrastructure must manage printers not as standalone peripherals, but as centralized, role-based network resources deployed seamlessly to the end-user."*
+> *"True infrastructure resilience is tested at the intersection of virtual control and physical hardware. A Junior System Administrator must not only deploy services but also master the underlying protocols and service life-cycles that govern connectivity."*
 
-**Executive Summary:** This phase focuses on centralizing print management, automating peripheral deployment, and securing physical document outputs. Key implementations include establishing a dedicated Print Server role, achieving zero-touch printer installation via GPO, enforcing Role-Based Access Control (RBAC) to mitigate unauthorized printing, and optimizing consumable costs by centralizing printer preferences.
-
----
-
-### 🖨️ I. Centralized Print Infrastructure & Zero-Touch Deployment
-**Objective:** Eliminate manual, per-machine printer installations by centralizing management and automating deployment based on Organizational Units (OUs).
-
-* **Infrastructure Preparation:**
-  * Installed the `Print and Document Services` role on the server.
-  * *Architectural Note:* While co-located in this lab, in a true enterprise production environment, Print Services are strictly isolated on a dedicated member server. This mitigates critical spooler-based vulnerabilities (e.g., PrintNightmare) from compromising the Domain Controller.
-* **GPO Deployment Strategy:**
-  * Configured automated deployment via `Print Management ➔ Deploy with Group Policy`.
-  * **Targeting:** Deployed the printer `Per User` to the specific target OU.
-  * *SysAdmin Rationale:* Deploying "Per User" ensures the printer follows the employee regardless of which workstation they log into. This achieves a "Zero-Touch" IT support model, drastically reducing Helpdesk tickets related to missing peripheral drivers.
+**Executive Summary:** This phase documents the expansion of the NORTHMAN lab environment into a hybrid physical-virtual state. Key achievements include the integration of physical laptop hardware into the Active Directory domain, the deployment of a centralized DHCP role to automate network provisioning, and the engineering of a domain-wide GPO to secure administrative RDP access. The phase concludes with a detailed Root Cause Analysis (RCA) regarding service-level initialization constraints and registry-level troubleshooting.
 
 ---
 
-### 🛡️ II. Print Security & Access Control (RBAC)
-**Objective:** Secure physical hardware from unauthorized access and ensure sensitive documents (e.g., HR, Finance) are only printed by authorized personnel.
+### I. Physical-Virtual Hybrid Migration & Hardware Integration
+**Objective:** Eliminate "laboratory bias" by introducing physical hardware variables such as real NIC drivers, physical cabling, and external network latency into the domain environment.
 
-* **Vulnerability Identification:**
-  * Discovered that the default Windows configuration grants `Print` permissions to the `Everyone` group, allowing cross-departmental access to restricted printers.
-* **Security Hardening (Implementation):**
-  * Accessed the Printer's `Properties ➔ Security` tab within Print Management.
-  * Explicitly removed the `Everyone` group.
-  * Added specific Active Directory Security Groups (e.g., `SG_Sales_PrintAccess`) and granted explicit `Print` permissions.
-* **Validation:** Unauthorized users were immediately met with an authentication prompt (Access Denied) when attempting to map or print to the secured device, confirming the Principle of Least Privilege is active.
+* **Implementation Details:**
+    * **Hardware Transition:** A dedicated physical laptop was prepared with a clean Windows 10 installation, moving away from a strictly nested virtual environment.
+    * **Network Bridging:** The device was interfaced with the virtualized Domain Controller (Server1) through a bridged network configuration to allow Layer 2 broadcast communication and direct hardware-to-server interaction.
+    * **Domain Join:** The laptop was successfully joined to the northman.com domain and strategically placed within the Sivas Organizational Unit (OU) for targeted policy application.
+* **Outcome:** This setup confirms that the Active Directory infrastructure is robust enough to manage diverse endpoints across physical network boundaries, ensuring that policies and services propagate correctly to non-virtualized hardware.
 
 ---
 
-### 📉 III. Cost Optimization & Resource Management
-**Objective:** Centrally manage consumable costs (color toner) without relying on user compliance.
+### II. Network Services: Centralized DHCP Role Deployment
+**Objective:** Transition from static IP management to a dynamic, scalable architecture using the DORA (Discover, Offer, Request, Acknowledge) protocol.
 
-* **Implementation:**
-  * Modified the default deployment configuration via `Properties ➔ General ➔ Preferences ➔ Paper/Quality`.
-  * Forced the default output to `Black and White`.
-* *SysAdmin Rationale:* End-users often print internal documents in color by mistake. Enforcing grayscale at the server level ensures domain-wide cost savings. If specific users require color, a secondary "Logical Printer" mapped to the same physical IP can be created and secured via a VIP Security Group.
+* **Role Configuration:**
+    * **Authorization:** The DHCP role was installed and explicitly authorized in Active Directory to prevent "Rogue DHCP" servers from disrupting the network segment.
+    * **Scope Engineering:** A new scope was created with a defined IP pool, excluding critical static addresses such as Domain Controllers and Gateways to prevent address conflicts.
+* **Advanced Scope Options:**
+    * **Option 003 (Router):** Defined the default gateway for the hybrid network.
+    * **Option 006 (DNS Servers):** Pointed directly to the Domain Controller, ensuring that physical clients can resolve internal hostnames immediately upon lease acquisition.
+* **Verification:** The physical laptop, configured to "Obtain an IP address automatically," successfully acquired a lease. This confirms the functional health of the DHCP broadcast traffic between the virtual server and physical endpoint.
 
 ---
 
-### 🌐 IV. Active Directory Integration & TCP/IP Networking
-**Objective:** Enhance network scalability and enable user-driven peripheral discovery via Active Directory.
+### III. Administrative Orchestration: GPO-Driven RDP Deployment
+**Objective:** Achieve a "Zero-Touch" administrative model where all endpoints are remotely accessible without manual local configuration, while maintaining strict firewall boundaries.
 
-1. **Directory Publishing:**
-   * Enabled `List in the directory` via Print Management.
-   * *Outcome:* Printers are now registered as Active Directory objects. Users can self-service by using the `Find: Printers` query in Windows Explorer, locating printers based on features or physical location.
-2. **TCP/IP Network Printer Architecture:**
-   * Transitioned from legacy local ports (LPD/USB) to scalable `Standard TCP/IP Ports`.
-   * Configured the printer IP address directly within Print Management.
-   * *SysAdmin Rationale:* Network-attached printers provide superior telemetry, SNMP monitoring capabilities, and eliminate the single-point-of-failure associated with USB-tethered "shared" printers.
+* **A. Service Configuration (Protocol Level):**
+    * **Path:** Computer Configuration | Policies | Administrative Templates | Windows Components | Remote Desktop Services | Remote Desktop Session Host | Connections
+    * **Setting:** "Allow users to connect remotely by using Remote Desktop Services" set to Enabled.
+    * **Technical Impact:** This policy modifies the fDenyTSConnections registry key (setting the value to 0) on the target machines.
+* **B. Network Security (Firewall Orchestration):**
+    * **Path:** Computer Configuration | Policies | Windows Settings | Security Settings | Windows Defender Firewall with Advanced Security
+    * **Implementation:** Created a Predefined Inbound Rule for Remote Desktop (TCP Port 3389).
+    * **Security Rationale:** The rule was strictly constrained to the Domain Profile. This ensures that if the laptop is taken off-site (e.g., to a public Wi-Fi), the RDP port is automatically shielded, mitigating the risk of brute-force attacks from untrusted networks.
+
+---
+
+### IV. Troubleshooting & Root Cause Analysis (RCA)
+**Objective:** Document the systematic resolution of a connectivity failure during the RDP rollout using standard systems engineering methodologies.
+
+* **Incident Description:** Following the GPO link and a successful gpupdate /force on the physical client, RDP connections remained blocked. Initial suspicion fell on GPO propagation or OU hierarchy errors.
+* **Diagnostic Methodology:**
+    1. **Connectivity Test:** A ping to the hostname was successful, ruling out basic network isolation or DNS failure.
+    2. **Policy Audit:** Executed "gpresult /r /SCOPE COMPUTER" as Administrator on the target laptop.
+       - **Result:** The "RDP" GPO was listed under "Applied Group Policy Objects." This confirmed the GPO was correctly linked to the Sivas OU and the computer object had the necessary Read permissions from SYSVOL.
+    3. **Port Analysis:** A "Test-NetConnection" on port 3389 returned False, indicating the port was not in a "listening" state despite the policy application.
+* **Root Cause:** The Windows Remote Desktop Service (TermService) is a critical system component that reads its registry configuration (modified by GPO) during its initial startup phase. In this instance, the service did not dynamically refresh its listener state or re-bind to the port despite the registry values being updated in the background by the Group Policy engine.
+* **Resolution:** A full system Reboot was performed. This forced the TermService to re-initialize, read the updated registry parameters, and successfully open the TCP 3389 listener port.
+
+---
+
+### V. Post-Implementation Validation
+* **DNS-Based Routing:** Verified that RDP sessions could be initiated using the Hostname instead of the IP, confirming that the DHCP-DNS dynamic update registration is functioning as intended.
+* **Role-Based Access:** Confirmed that only members of the Domain Admins group (e.g., NORTHMAN\mfşahan) could establish sessions, maintaining the Principle of Least Privilege (PoLP) and ensuring that unauthorized local users remain restricted from remote access.
